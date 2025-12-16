@@ -1,0 +1,151 @@
+"use client";
+
+import React, { useEffect, useRef, useState } from "react";
+import { useCamera } from "./CameraProvider";
+import * as ort from "onnxruntime-web";
+import { loadModel, preprocess, postprocess, BoundingBox } from "@/lib/onnx/utils";
+
+// Path to model in public folder
+const MODEL_PATH = "/models/yolov8_trained_model.onnx";
+
+export default function AgentView() {
+    const { stream, error: cameraError, isStreaming } = useCamera();
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+
+    const [modelLoading, setModelLoading] = useState(true);
+    const [modelError, setModelError] = useState<string | null>(null);
+    const sessionRef = useRef<ort.InferenceSession | null>(null);
+    const requestRef = useRef<number | null>(null);
+
+    // Load ONNX Model
+    useEffect(() => {
+        const initModel = async () => {
+            try {
+                console.log("Loading model...");
+                const session = await loadModel(MODEL_PATH);
+                sessionRef.current = session;
+                setModelLoading(false);
+                console.log("Model loaded successfully");
+            } catch (e: any) {
+                console.error("Model load failed:", e);
+                // Fallback or error message
+                setModelError("Failed to load detection model. Masking disabled.");
+                setModelLoading(false);
+            }
+        };
+        initModel();
+    }, []);
+
+    // Bind stream to video
+    useEffect(() => {
+        if (videoRef.current && stream) {
+            videoRef.current.srcObject = stream;
+        }
+    }, [stream]);
+
+    // Detection Loop
+    useEffect(() => {
+        const detectFrame = async () => {
+            if (
+                !videoRef.current ||
+                !canvasRef.current ||
+                videoRef.current.readyState !== 4
+            ) {
+                requestRef.current = requestAnimationFrame(detectFrame);
+                return;
+            }
+
+            const video = videoRef.current;
+            const canvas = canvasRef.current;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) return;
+
+            // 1. Always Draw video to canvas (Background)
+            // If video is not yet loaded, use container dimensions or default
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+
+            if (video.videoWidth > 0) {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            } else {
+                // Show loading placeholder on canvas if dimensions are 0
+                ctx.fillStyle = "#111";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#666";
+                ctx.font = "20px sans-serif";
+                ctx.fillText("Initializing Video...", 20, 50);
+            }
+
+            // 2. Inference (Only if model is ready)
+            if (sessionRef.current && !modelError) {
+                try {
+                    const tensor = preprocess(video);
+                    const feeds: Record<string, ort.Tensor> = {};
+                    feeds[sessionRef.current.inputNames[0]] = tensor;
+
+                    const results = await sessionRef.current.run(feeds);
+
+                    // 3. Post-process & Masking
+                    const boxes = postprocess(results, canvas.width, canvas.height);
+
+                    // 4. Draw Black Boxes
+                    ctx.fillStyle = "black";
+                    boxes.forEach((box: BoundingBox) => {
+                        ctx.fillRect(box.x, box.y, box.width, box.height);
+                    });
+
+                } catch (e) {
+                    console.error("Inference error:", e);
+                }
+            }
+
+            requestRef.current = requestAnimationFrame(detectFrame);
+        };
+
+        if (isStreaming) {
+            detectFrame();
+        }
+
+        return () => {
+            if (requestRef.current) cancelAnimationFrame(requestRef.current);
+        };
+    }, [isStreaming, modelError]);
+
+    if (cameraError) return <div className="text-red-500">{cameraError}</div>;
+
+    return (
+        <div className="relative w-full h-full bg-black rounded-lg overflow-hidden border border-gray-800">
+            <div className="absolute top-4 right-4 z-10 bg-red-600 text-white px-3 py-1 rounded-full text-sm font-medium shadow-lg animate-pulse">
+                Agent View (Masked)
+            </div>
+
+            {modelLoading && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 text-white">
+                    Loading AI Model...
+                </div>
+            )}
+
+            {modelError && (
+                <div className="absolute top-16 right-4 z-20 bg-yellow-600 text-white px-3 py-1 rounded text-xs">
+                    Warning: Masking Offline
+                </div>
+            )}
+
+            {/* Hidden Source Video (Must be rendered for dimensions) */}
+            <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="absolute inset-0 w-full h-full object-cover opacity-0 pointer-events-none"
+            />
+
+            {/* Main Display Canvas (Video + Mask) */}
+            <canvas
+                ref={canvasRef}
+                className="w-full h-full object-cover"
+            />
+        </div>
+    );
+}
