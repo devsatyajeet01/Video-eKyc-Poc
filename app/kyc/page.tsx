@@ -93,8 +93,14 @@ function KYCContent() {
 
     return (
         <div className="flex flex-col h-screen bg-neutral-900 text-white font-sans">
-            {/* Hidden Capture Video */}
-            <video ref={captureVideoRef} autoPlay muted className="hidden" />
+            {/* Hidden Capture Video (Must be rendered for capture) */}
+            <video
+                ref={captureVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className="absolute w-1 h-1 opacity-0 pointer-events-none"
+            />
 
             {/* Header */}
             <header className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 bg-neutral-900/50 backdrop-blur-md z-20">

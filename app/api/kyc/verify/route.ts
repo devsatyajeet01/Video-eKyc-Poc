@@ -43,8 +43,18 @@ export async function POST(req: NextRequest) {
         console.log("Processing Verification Request...");
 
         // 1. Prepare Buffers
+        console.log("Parsing Images...");
+        console.log("Face Image Header:", faceImage.substring(0, 50) + "...");
+
         const faceBuffer = parseImage(faceImage);
         const idBuffer = parseImage(idImage);
+
+        console.log("Face Buffer Size:", faceBuffer.length, "bytes");
+        console.log("ID Buffer Size:", idBuffer.length, "bytes");
+
+        if (faceBuffer.length === 0 || idBuffer.length === 0) {
+            throw new Error("One of the image buffers is empty.");
+        }
 
         // 2. AWS Rekognition: Face Match
         let faceMatchScore = 0;
