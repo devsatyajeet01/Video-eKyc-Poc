@@ -8,7 +8,11 @@ import { loadModel, preprocess, postprocess, BoundingBox } from "@/lib/onnx/util
 // Path to model in public folder
 const MODEL_PATH = "/models/yolov8_trained_model.onnx";
 
-export default function AgentView() {
+interface AgentViewProps {
+    mode?: "FACE" | "ID" | "NONE";
+}
+
+export default function AgentView({ mode = "NONE" }: AgentViewProps) {
     const { stream, error: cameraError, isStreaming } = useCamera();
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -61,15 +65,45 @@ export default function AgentView() {
             const ctx = canvas.getContext("2d");
             if (!ctx) return;
 
-            // 1. Always Draw video to canvas (Background)
-            // If video is not yet loaded, use container dimensions or default
+            // 1. Draw Video
             canvas.width = video.videoWidth || 640;
             canvas.height = video.videoHeight || 480;
 
             if (video.videoWidth > 0) {
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                if (mode === "ID") {
+                    // Privacy Mode: Blur Background, Sharp Center
+                    const ctxAny = ctx as any; // TypeScript might complain about filter
+
+                    // A. Draw Blurred Background
+                    ctxAny.filter = 'blur(10px)';
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    ctxAny.filter = 'none';
+
+                    // B. Define Sharp Zone (Center 60% Width, 55% Height - Approximation of UI Box)
+                    const boxW = canvas.width * 0.6;
+                    const boxH = canvas.height * 0.55;
+                    const boxX = (canvas.width - boxW) / 2;
+                    const boxY = (canvas.height - boxH) / 2;
+
+                    // C. Draw Sharp Video only in Center
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.rect(boxX, boxY, boxW, boxH);
+                    ctx.clip();
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    ctx.restore();
+
+                    // D. Draw Guide Box Border on Canvas (Visual Feedback for Agent)
+                    // REMOVED: User reported double boxes. The JSX overlay handles the visual.
+                    // ctx.strokeStyle = "rgba(255, 255, 0, 0.5)";
+                    // ...
+
+                } else {
+                    // Standard Mode (Full Sharp)
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                }
             } else {
-                // Show loading placeholder on canvas if dimensions are 0
+                // Show loading placeholder
                 ctx.fillStyle = "#111";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 ctx.fillStyle = "#666";
@@ -110,12 +144,13 @@ export default function AgentView() {
         return () => {
             if (requestRef.current) cancelAnimationFrame(requestRef.current);
         };
-    }, [isStreaming, modelError]);
+    }, [isStreaming, modelError, mode]);
 
     if (cameraError) return <div className="text-red-500">{cameraError}</div>;
 
     return (
         <div className="relative w-full h-full bg-black rounded-lg overflow-hidden border border-gray-800">
+            {/* ... Agent Label and Warnings ... */}
             <div className="absolute top-4 right-4 z-10 bg-red-600 text-white px-3 py-1 rounded-full text-sm font-medium shadow-lg animate-pulse">
                 Agent View (Masked)
             </div>
@@ -129,6 +164,25 @@ export default function AgentView() {
             {modelError && (
                 <div className="absolute top-16 right-4 z-20 bg-yellow-600 text-white px-3 py-1 rounded text-xs">
                     Warning: Masking Offline
+                </div>
+            )}
+
+            {/* Overlays - Mirroring ClientView */}
+            {mode === "FACE" && (
+                <div className="absolute inset-0 z-20 pointer-events-none flex items-center justify-center">
+                    <div className="w-64 h-80 rounded-[50%] border-4 border-dashed border-blue-400/50 shadow-[0_0_100px_rgba(0,0,0,0.5)]"></div>
+                    <div className="absolute mt-96 text-blue-300 font-medium text-sm bg-black/50 px-3 py-1 rounded-full">
+                        Face Guide
+                    </div>
+                </div>
+            )}
+
+            {mode === "ID" && (
+                <div className="absolute inset-0 z-20 pointer-events-none flex items-center justify-center">
+                    <div className="w-[450px] h-[280px] rounded-xl border-4 border-dashed border-yellow-400/50 shadow-[0_0_100px_rgba(0,0,0,0.5)]"></div>
+                    <div className="absolute mt-80 text-yellow-300 font-medium text-sm bg-black/50 px-3 py-1 rounded-full">
+                        ID Guide
+                    </div>
                 </div>
             )}
 

@@ -156,7 +156,7 @@ function KYCContent() {
                                 </div>
                             </div>
                         )}
-                        <ClientView />
+                        <ClientView mode={step === "FACE_CAPTURE" ? "FACE" : step === "ID_CAPTURE" ? "ID" : "NONE"} />
                         {/* Overlay instruction for Client */}
                         <div className="absolute bottom-6 left-0 right-0 text-center pointer-events-none">
                             <span className="bg-black/70 text-white px-4 py-2 rounded-full text-sm font-medium">
@@ -181,7 +181,7 @@ function KYCContent() {
                     <div className="flex-1 relative bg-black rounded-xl border border-blue-900/40 shadow-2xl overflow-hidden ring-1 ring-blue-900/20 flex flex-col">
                         {/* Video Area */}
                         <div className="flex-1 relative overflow-hidden">
-                            <AgentView />
+                            <AgentView mode={step === "FACE_CAPTURE" ? "FACE" : step === "ID_CAPTURE" ? "ID" : "NONE"} />
 
                             {/* Captured Previews */}
                             <div className="absolute top-4 right-4 flex flex-col gap-2">
