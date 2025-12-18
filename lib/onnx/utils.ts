@@ -67,7 +67,7 @@ export interface BoundingBox {
  * Output tensor shape: [1, 4 + num_classes, 8400]
  * We need to transpose and filter.
  */
-export function postprocess(results: ort.InferenceSession.OnRunResult, imgWidth: number, imgHeight: number): BoundingBox[] {
+export function postprocess(results: Record<string, ort.Tensor>, imgWidth: number, imgHeight: number): BoundingBox[] {
     // Logic for post-processing varies slightly by export opset, 
     // but generally output[0] is the main output.
     // Standard YOLOv8 export: "output0"
@@ -116,7 +116,7 @@ export function postprocess(results: ort.InferenceSession.OnRunResult, imgWidth:
             }
         }
 
-        if (maxProb > 0.45) { // Threshold
+        if (maxProb > 0.30) { // Threshold lowered to 30% to catch Aadhaar Numbers better
             boxes.push({
                 x: (cx - w / 2) * (imgWidth / MODEL_INPUT_SIZE),
                 y: (cy - h / 2) * (imgHeight / MODEL_INPUT_SIZE),

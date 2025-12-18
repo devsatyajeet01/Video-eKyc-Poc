@@ -43,7 +43,7 @@ export default function ClientView({ mode = "NONE" }: ClientViewProps) {
 
             {mode === "ID" && (
                 <div className="absolute inset-0 z-20 pointer-events-none flex items-center justify-center">
-                    <div className="w-[450px] h-[280px] rounded-xl border-4 border-dashed border-yellow-400/50 shadow-[0_0_100px_rgba(0,0,0,0.5)]"></div>
+                    <div className="w-[650px] h-[400px] rounded-xl border-4 border-dashed border-yellow-400/50 shadow-[0_0_100px_rgba(0,0,0,0.5)]"></div>
                     <div className="absolute mt-80 text-yellow-300 font-medium text-sm bg-black/50 px-3 py-1 rounded-full">
                         Fit ID Card Here (Close Up)
                     </div>
